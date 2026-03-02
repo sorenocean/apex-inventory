@@ -185,6 +185,12 @@ export default function App() {
     log(delta>0?"restock":"use", p?.name||pid, delta, note||"");
   };
 
+  const adjustBuilt = (key, delta) => {
+    save(d => ({...d, built:{...d.built, [key]: Math.max(0, (d.built[key]||0) + delta)}}));
+    const names = {handles:"Handle",bases:"Base",coolpacks:"Cool Pack",narwalls:"Narwall",packages:"Package"};
+    log(delta>0?"restock":"use", names[key]||key, delta, delta>0?`Added ${delta} built`:`Removed ${Math.abs(delta)} built`);
+  };
+
   const buildCoolPacks = (qty) => {
     if(qty<1||qty>maxCoolPacks) return;
     save(d => ({
@@ -293,6 +299,7 @@ export default function App() {
     {id:"dash",  icon:P.home,   label:"Dashboard"},
     {id:"build", icon:P.wrench, label:"Assembly"},
     {id:"parts", icon:P.layers, label:"Parts"},
+    {id:"built", icon:P.box,    label:"Built"},
     {id:"log",   icon:P.clock,  label:"History"},
     {id:"alerts",icon:P.alert,  label:"Alerts", badge:lowParts.length},
   ];
@@ -310,10 +317,14 @@ export default function App() {
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
         .fi{animation:fadeIn .2s ease both}
         input,select,button{font-family:inherit}
+        input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+@media(min-width:769px){.mobile-nav{display:none!important}.desktop-nav{display:flex!important}}
+@media(max-width:768px){.desktop-nav{display:none!important}.mobile-nav{display:flex!important}.main-content{padding:14px 12px!important;padding-bottom:70px!important}}
       `}</style>
 
       {/* ═══ SIDEBAR ═══ */}
-      <nav style={{width:196,background:C.panel,borderRight:`1px solid ${C.bdr}`,display:"flex",flexDirection:"column",flexShrink:0}}>
+      <nav className="desktop-nav" style={{width:196,background:C.panel,borderRight:`1px solid ${C.bdr}`,flexDirection:"column",flexShrink:0}}>
         <div style={{padding:"16px 12px",display:"flex",alignItems:"center",gap:9,borderBottom:`1px solid ${C.bdr}`}}>
           <img src="/logo.png" style={{width:140,height:"auto",objectFit:"contain",flexShrink:0}} alt="Apex Cool Labs"/>
           <div style={{fontSize:9,color:C.dim,fontWeight:700,letterSpacing:".12em",marginTop:2}}>INVENTORY</div>
@@ -332,7 +343,7 @@ export default function App() {
       </nav>
 
       {/* ═══ MAIN ═══ */}
-      <main style={{flex:1,overflow:"auto",padding:"22px 26px"}}>
+      <main className="main-content" style={{flex:1,overflow:"auto",padding:"22px 26px"}}>
 
       {/* ═══════ DASHBOARD ═══════ */}
       {view==="dash"&&<div className="fi">
@@ -535,6 +546,32 @@ export default function App() {
         </div>
       </div>}
 
+      {/* BUILT PARTS */}
+      {view==="built"&&<div className="fi">
+        <h1 style={{fontSize:21,fontWeight:800,marginBottom:3}}>Built Assemblies</h1>
+        <p style={{color:C.sub,fontSize:13,marginBottom:16}}>Adjust built sub-assembly and finished goods counts</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {[
+            {key:"coolpacks",label:"Cool Packs",c:C.amber,icon:P.snowflake},
+            {key:"handles",label:"Handles",c:C.blue,icon:P.wrench},
+            {key:"bases",label:"Bases",c:C.pink,icon:P.disc},
+            {key:"narwalls",label:"Narwalls",c:C.teal,icon:P.zap},
+            {key:"packages",label:"Ship Packages",c:C.cyan,icon:P.box},
+          ].map(item=>(
+            <div key={item.key} style={{background:C.panel,border:`1px solid ${C.bdr}`,borderRadius:10,padding:16,display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:160}}>
+                <div style={{width:32,height:32,borderRadius:8,background:`${item.c}18`,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic d={item.icon} s={16} c={item.c}/></div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700}}>{item.label}</div>
+                  <div style={{fontSize:20,fontWeight:800,fontFamily:"'Space Mono'",color:item.c}}>{db.built[item.key]||0}</div>
+                </div>
+              </div>
+              <InlineAdjust onAdjust={(delta)=>adjustBuilt(item.key,delta)} currentQty={db.built[item.key]||0}/>
+            </div>
+          ))}
+        </div>
+      </div>}
+
       {/* ═══════ HISTORY ═══════ */}
       {view==="log"&&<div className="fi">
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -588,6 +625,17 @@ export default function App() {
       </div>}
 
       </main>
+
+      {/* MOBILE BOTTOM NAV */}
+      <nav className="mobile-nav" style={{display:"none",position:"fixed",bottom:0,left:0,right:0,background:C.panel,borderTop:`1px solid ${C.bdr}`,justifyContent:"space-around",padding:"6px 0 env(safe-area-inset-bottom) 0",zIndex:999}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>setView(n.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,border:"none",background:"transparent",color:view===n.id?C.blue:C.sub,fontSize:9,fontWeight:600,cursor:"pointer",padding:"4px 8px",position:"relative"}}>
+            <Ic d={n.icon} s={20} c={view===n.id?C.blue:C.sub}/>
+            {n.label}
+            {n.badge>0&&<span style={{position:"absolute",top:-2,right:-2,background:C.red,color:"#fff",fontSize:8,fontWeight:800,padding:"0 4px",borderRadius:6,minWidth:14,textAlign:"center"}}>{n.badge}</span>}
+          </button>
+        ))}
+      </nav>
 
       {/* ═══ MODALS ═══ */}
 
